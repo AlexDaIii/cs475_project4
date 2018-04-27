@@ -1,7 +1,7 @@
 import os
 
 ALGORITHMS = ['lambda_means', 'stochastic_k_means']
-ALGORITHMS = ['stochastic_k_means']
+ALGORITHMS = ['lambda_means']
 DATA_DIR = 'datasets'
 OUTPUT_DIR = 'output'
 DATASETS = ['easy', 'hard', 'bio', 'finance', 'iris', 'speech', 'vision']

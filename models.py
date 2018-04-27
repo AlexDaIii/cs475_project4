@@ -91,6 +91,7 @@ class LambdaMeans(Model):
         self.lmda = None  # this is the lambda value
         self.num_iter = None  # this is the number of iterations
         self.clusters = None  # these are the assignments X into the clusters
+        self.centroids_arr_size = 2
         pass
 
     def fit(self, X, _, **kwargs):
@@ -100,12 +101,14 @@ class LambdaMeans(Model):
         lambda0 = kwargs['lambda0']
         iterations = kwargs['iterations']
 
-        # TODO: Write code to fit the model.  NOTE: labels should not be used here.
-        self.centroids = np.mean(X, 0)  # first centroid is the mean of the data
+        # TODO: Write code to fit the model.  NOTE: labels should not be used here
 
         self.num_features = np.size(X, 1)
         self.num_examples = np.size(X, 0)
-        self.clusters = [[-1]]  # list works the closest to vector in cpp
+
+        self.clusters = [[-1]]   # list works the closest to vector in cpp
+        self.centroids = np.zeros((2, self.num_features))  # double array size if too large
+        self.centroids[0, :] = np.mean(X, 0)  # first centroid is the mean of the data
 
         self.num_iter = iterations
         if lambda0 <= 0:  # checks if lambda is valid - if not then initialize lambda for them
@@ -135,12 +138,9 @@ class LambdaMeans(Model):
         return y
 
     def find_closest_for_predict(self, point):
-        x = np.linalg.norm(self.centroids - point, axis=1)
-        closest = np.argmin(x, axis=0)
-        return closest
+        return np.argmin(np.linalg.norm(self.centroids[0:self.num_clusters, :] - point, axis=1))
 
     def calculate_distance(self, x1, x2):
-        # TODO: VECTORIZE THIS
         """
         Takes in two vectors and calculates the distance
         :param x1: First vector
@@ -155,7 +155,10 @@ class LambdaMeans(Model):
         :param X: the data
         """
         for i in range(self.num_clusters):
-            self.centroids[i, :] = np.mean(X[self.clusters[i][1:]], axis=0)
+            if X[self.clusters[i][1:]].shape[0] == 0:
+                self.centroids[i, :] = 0
+            else:
+                self.centroids[i, :] = np.mean(X[self.clusters[i][1:]], axis=0)
         pass
 
     def find_closest_cluster(self, point):
@@ -165,20 +168,9 @@ class LambdaMeans(Model):
         :param point: the point to find the closest centroid to
         :return: the idx of the closest centroid
         """
-        x = np.linalg.norm(self.centroids - point, axis=1)
-        min_distance = np.min(x, axis=0)
+        x = np.linalg.norm(self.centroids[0:self.num_clusters, :] - point, axis=1)
         closest = np.argmin(x, axis=0)
-        return self.check_lambda(min_distance, point, closest)
-
-    def check_lambda(self, min_distance, point, closest):
-        """
-        Checks if the min distance is less than lambda
-        :param min_distance: the minimum distance
-        :param point: point to return
-        :param closest: closest idx
-        :return: the idx fo closest cluster
-        """
-        if min_distance < self.lmda:
+        if x[closest] <= self.lmda:
             return closest
         else:
             self.create_new_centroid(point)
@@ -190,7 +182,15 @@ class LambdaMeans(Model):
         :param point: the point that was too far - create a new centroid at that point
         """
         self.num_clusters += 1
-        self.centroids = np.concatenate((self.centroids, point), axis=0)
+
+        # check to make sure we dont need to double the centroids array
+        if self.num_clusters <= np.size(self.centroids, axis=0):
+            self.centroids[self.num_clusters - 1, :] = point
+        else:
+            # double array size if need to grow array
+            self.centroids.resize((self.centroids_arr_size * 2, self.num_features))
+            self.centroids[self.num_clusters - 1, :] = point
+            self.centroids_arr_size *= 2
         self.clusters.append([-1])
         pass
 
@@ -200,8 +200,7 @@ class LambdaMeans(Model):
         :param X: the data
         :return: the lambda
         """
-        lmd_wo = np.sum(np.linalg.norm(np.subtract(X, self.centroids), axis=1))  # default lambda
-        return np.divide(lmd_wo, self.num_examples)
+        return np.divide(np.sum(np.linalg.norm(np.subtract(X, self.centroids[0,:]), axis=1)), self.num_examples)
 
     def clear_assignments(self):
         """
@@ -213,8 +212,7 @@ class LambdaMeans(Model):
     def train(self, X):
         for iteration in range(self.num_iter):
             for i in range(self.num_examples):
-                cluster_assigment = self.find_closest_cluster(X[i])
-                self.clusters[cluster_assigment].append(i)
+                self.clusters[self.find_closest_cluster(X[i])].append(i)
             self.update_centroids(X)
             self.clear_assignments()
         pass
@@ -253,6 +251,11 @@ class StochasticKMeans(Model):
         self.train(X)
 
     def init_centroids(self, X):
+        """
+        A very stupid way of hardcoding the initial k clusters
+        :param X:
+        :return:
+        """
         if self.num_clusters == 1:
             self.centroids = np.mean(X, 0)  # first centroid is the mean of the data
             self.clusters = [[-1]]
