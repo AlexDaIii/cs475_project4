@@ -232,6 +232,7 @@ class StochasticKMeans(Model):
         self.beta = None  # this is the beta value
         self.num_iter = None  # this is the number of iterations
         self.clusters = None  # these are the assignments X into the clusters
+        self.c = None
         pass
 
     def fit(self, X, _, **kwargs):
@@ -246,6 +247,7 @@ class StochasticKMeans(Model):
         self.num_clusters = num_clusters
         self.num_iter = iterations
         self.beta = 2
+        self.c = 2
 
         self.init_centroids(X)
         self.train(X)
@@ -301,6 +303,7 @@ class StochasticKMeans(Model):
             for i in range(self.num_examples):
                 cluster_assigment = self.find_closest_cluster(X[i])
                 self.clusters[cluster_assigment].append(i)
+            self.beta = self.c * (iteration + 1)
             self.update_centroids(X)
             self.clear_assignments()
         pass
@@ -315,15 +318,6 @@ class StochasticKMeans(Model):
         closest = np.argmin(x, axis=0)
         return closest
 
-    def update_centroids(self, X):
-        """
-        For all centroids update it to the mean of the cluster
-        :param X: the data
-        """
-        for i in range(self.num_clusters):
-            self.centroids[i, :] = self.calculate_prob(X)
-        pass
-
     def clear_assignments(self):
         """
         Clears assignments to the clusters
@@ -331,10 +325,12 @@ class StochasticKMeans(Model):
         for i in range(self.num_clusters):
             self.clusters[i] = [-1]
 
-    def calculate_prob(self, X):
-        dist = np.linalg.norm(X - self.centroids[0, :], axis=1)
-        inner = np.multiply(-self.beta, dist)
-        inner = np.divide(inner, np.mean(dist))
-        numerator = np.exp(inner)
-        denom = np.sum(inner)
-        return np.divide(numerator, denom)
+    def update_centroids(self, X):
+        distance = np.zeros((self.num_examples, self.num_clusters))
+        for i in range(self.num_clusters):
+            # find distance for individual cluster
+            distance[:,i] = np.linalg.norm(X - self.centroids[i,:], axis=1)
+        prob = np.exp(np.multiply(-self.beta, distance) / np.mean(distance, axis=1).reshape(self.num_examples, 1))
+        prob = prob / np.sum(prob, axis=1).reshape(self.num_examples, 1)
+        self.centroids = np.divide(prob.T * X, np.sum(prob, axis=0).reshape(self.num_clusters, 1))
+        pass

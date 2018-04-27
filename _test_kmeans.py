@@ -13,4 +13,4 @@ for filename in DATASETS:
     y = y.reshape(len(y), 1)
     #X#  = np.array([[4,3,7],[0,1,-1],[9,14,2]])
     # lmd.fit(X, y, lambda0=4, iterations=1)
-    stc.fit(X, y, iterations=1, num_clusters=2)
+    stc.fit(X, y, iterations=10, num_clusters=2)

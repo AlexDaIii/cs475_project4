@@ -10,9 +10,17 @@ y = np.concatenate((y, y[0,:].reshape(1,4)), axis=0)
 # print(y)
 
 
-print(len(x))
+#print(len(x))
 
 # xx = [-1, 0, 0, 2]
 # x.append(xx)
 # print(x)
 # print(x[1])
+
+z = 2*np.ones((900,1))
+z = np.mean(z)
+print(np.mean(z).size)
+zz = 6*np.ones((900, 2))
+print(np.divide(zz, z))
+
+
